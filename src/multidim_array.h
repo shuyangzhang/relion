@@ -235,6 +235,11 @@ extern std::string floatToString(float F, int _width, int _prec);
  */
 #define DIRECT_A3D_ELEM(v,k,i,j) ((v).data[(k)*YXSIZE(v)+((i)*XSIZE(v))+(j)])
 
+/** This function verity if the k,i,j is out of index
+ * if k < 0 or k > ZSIZE(v) or i < 0 or i > YSIZE(v) or j < 0 or j > XSIZE(v), then return 0, else DIRECT_A3D_ELEM(v,k,i,j)
+ */
+#define DIRECT_A3D_ELEM_CUBIC(v,k,i,j) ( (k < 0 || i < 0 || j < 0 || k >= ZSIZE(v) || i >= YSIZE(v) || j >= XSIZE(v)) ? Complex(0,0) : DIRECT_A3D_ELEM(v,k,i,j) )
+
 /** A short alias for the previous function.
  *
  */
@@ -301,6 +306,11 @@ extern std::string floatToString(float F, int _width, int _prec);
  * @endcode
  */
 #define DIRECT_A2D_ELEM(v,i,j) ((v).data[(i)*(v).xdim+(j)])
+
+/** This function verity if the i,j is out of index
+ * if i < 0 or i > YSIZE(v) or j < 0 or j > XSIZE(v), then return 0, else DIRECT_A2D_ELEM(v,i,j)
+ */
+#define DIRECT_A2D_ELEM_CUBIC(v,i,j) ( ( i < 0 || j < 0 || i >= YSIZE(v) || j >= XSIZE(v)) ? Complex(0,0) : DIRECT_A2D_ELEM(v,i,j) )
 
 /** Short alias for DIRECT_A2D_ELEM
  */
