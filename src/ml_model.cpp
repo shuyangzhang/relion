@@ -1019,8 +1019,16 @@ void MlWsumModel::initialise(MlModel &_model, FileName fn_sym, bool asymmetric_p
     sigma2_rot = _model.sigma2_rot;
     sigma2_tilt = _model.sigma2_tilt;
     sigma2_psi = _model.sigma2_psi;
-    interpolator = _model.interpolator;
+
+	// initial version of 3dem
+    // interpolator = _model.interpolator;
+
+	// cubic interpolation version
+	//interpolator in wsum_model equal to mymodel except CUBIC 
+    interpolator = (_model.interpolator == CUBIC) ? TRILINEAR : _model.interpolator;
+	
     r_min_nn = _model.r_min_nn;
+
 	is_helix = _model.is_helix;
 	helical_nr_asu = _model.helical_nr_asu;
 	helical_twist_min = _model.helical_twist_min;
