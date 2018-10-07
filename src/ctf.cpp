@@ -174,9 +174,7 @@ void CTF::initialise()
     K2 = PI / 2 * local_Cs * lambda * lambda * lambda;
     K3 = sqrt(1-Q0*Q0);
 
-    //K4 = -Bfac / 4.;
-    // For now switch off B-factor weighting on the CTF!
-    K4 = 0.;
+    K4 = -Bfac / 4.;
 
     // Phase shift in radian
     K5 = DEG2RAD(phase_shift);
@@ -216,6 +214,21 @@ void CTF::getCenteredImage(MultidimArray<RFLOAT> &result, RFLOAT Tm,
 		RFLOAT x = (RFLOAT)j / xs;
 		RFLOAT y = (RFLOAT)i / ys;
 		A2D_ELEM(result, i, j) = getCTF(x, y, do_abs, do_only_flip_phases, do_intact_until_first_peak, do_damping);
+	}
+
+}
+void CTF::get1DProfile(MultidimArray < RFLOAT > &result, RFLOAT angle, RFLOAT Tm,
+		bool do_abs, bool do_only_flip_phases, bool do_intact_until_first_peak, bool do_damping)
+{
+
+	result.setXmippOrigin();
+	RFLOAT xs = (RFLOAT)XSIZE(result) * Tm; // assuming result is at the image size!
+
+	FOR_ALL_ELEMENTS_IN_ARRAY1D(result)
+	{
+		RFLOAT x = (COSD(angle) * (RFLOAT)i) / xs;
+		RFLOAT y = (SIND(angle) * (RFLOAT)i) / xs;
+		A1D_ELEM(result, i) = getCTF(x, y, do_abs, do_only_flip_phases, do_intact_until_first_peak, do_damping);
 	}
 
 }

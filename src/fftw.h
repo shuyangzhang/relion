@@ -578,7 +578,8 @@ void windowFourierTransform(MultidimArray<T > &in,
     long int newhdim = newdim/2 + 1;
 
     // If same size, just return input
-    if (newhdim == XSIZE(in))
+    // Sjors 5dec2017: only check for xdim is not enough, even/off ydim leaves ambiguity for dim>1
+    if ( newdim == YSIZE(in) && newhdim == XSIZE(in) )
     {
         out = in;
         return;
@@ -630,7 +631,8 @@ void windowFourierTransform(MultidimArray<T > &V,
     long int newhdim = newdim/2 + 1;
 
     // If same size, just return input
-    if (newhdim == XSIZE(V))
+    // Sjors 5dec2017: only check for xdim is not enough, even/off ydim leaves ambiguity for dim>1
+    if ( newdim == YSIZE(V) && newhdim == XSIZE(V) )
     {
         return;
     }
@@ -753,6 +755,12 @@ void getAmplitudeCorrelationAndDifferentialPhaseResidual(MultidimArray< RFLOAT >
 void getAbMatricesForShiftImageInFourierTransform(MultidimArray<Complex > &in,
 									MultidimArray<Complex > &out,
 									RFLOAT oridim, RFLOAT shift_x, RFLOAT shift_y, RFLOAT shift_z = 0.);
+
+void shiftImageInFourierTransformWithTabSincos(MultidimArray<Complex > &in,
+									MultidimArray<Complex > &out,
+									RFLOAT oridim, long int newdim,
+									TabSine& tabsin, TabCosine& tabcos,
+									RFLOAT xshift, RFLOAT yshift, RFLOAT zshift = 0.);
 
 // Shift an image through phase-shifts in its Fourier Transform (without tabulated sine and cosine)
 // Note that in and out may be the same array, in that case in is overwritten with the result

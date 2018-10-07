@@ -65,6 +65,10 @@ public:
         frac_sampling = textToFloat(parser.getOption("--frac_sampling", "Number of samplings in between a single asymmetrical unit", "1"));
         frac_range = textToFloat(parser.getOption("--frac_range", "Range of the rise [-0.5, 0.5> to be sampled", "0.5"));
 
+       	// Check for errors in the command-line option
+    	if (parser.checkForErrors())
+    		REPORT_ERROR("Errors encountered on the command line (see above), exiting...");
+
         if (do_helix)
         {
         	if (fn_sym != "C1")
@@ -74,10 +78,6 @@ public:
         		REPORT_ERROR("Provide either --asu OR --frac_sampling, but not both!");
 
         }
-
-       	// Check for errors in the command-line option
-    	if (parser.checkForErrors())
-    		REPORT_ERROR("Errors encountered on the command line (see above), exiting...");
 
 	}
 
@@ -96,6 +96,7 @@ public:
 		{
 			if (nr_asu > 1)
 			{
+				// Z_start and z_stop and z_step are in fractions of the rise!
 				int istart = -(nr_asu-1)/2;
 				int istop = nr_asu/2;
 				z_start = (RFLOAT)istart;
@@ -104,8 +105,8 @@ public:
 			}
 			else if (frac_sampling > 1)
 			{
-				z_start = -frac_range * rise;
-				z_stop = (frac_range - 0.001) * rise;
+				z_start = -frac_range;
+				z_stop = (frac_range - 0.001);
 				z_step = 1. / frac_sampling;
 			}
 			std::cout << " Helical: z_start= " << z_start << " z_stop= " << z_stop << " z_step= " << z_step << std::endl;
@@ -205,7 +206,7 @@ int main(int argc, char *argv[])
 
     catch (RelionError XE)
     {
-        prm.usage();
+        //prm.usage();
         std::cerr << XE;
         exit(1);
     }

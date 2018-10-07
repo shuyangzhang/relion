@@ -194,6 +194,8 @@ void FourierTransformer::setReal(MultidimArray<RFLOAT> &input)
         destroyPlans();
 
         // Make new plans
+        plans_are_set = true;
+
         pthread_mutex_lock(&fftw_plan_mutex);
 #ifdef RELION_SINGLE_PRECISION
         fPlanForward = fftwf_plan_dft_r2c(ndim, N, MULTIDIM_ARRAY(*fReal),
@@ -202,8 +204,6 @@ void FourierTransformer::setReal(MultidimArray<RFLOAT> &input)
                                           (fftwf_complex*) MULTIDIM_ARRAY(fFourier), MULTIDIM_ARRAY(*fReal),
                                           FFTW_ESTIMATE);
 #else
-        plans_are_set = true;
-
         fPlanForward = fftw_plan_dft_r2c(ndim, N, MULTIDIM_ARRAY(*fReal),
                                          (fftw_complex*) MULTIDIM_ARRAY(fFourier), FFTW_ESTIMATE);
         fPlanBackward = fftw_plan_dft_c2r(ndim, N,
@@ -265,45 +265,27 @@ void FourierTransformer::setReal(MultidimArray<Complex > &input)
         // Destroy both forward and backward plans if they already exist
         destroyPlans();
 
-        pthread_mutex_lock(&fftw_plan_mutex);
-#ifdef RELION_SINGLE_PRECISION
-        if (fPlanForward!=NULL)
-            fftwf_destroy_plan(fPlanForward);
-        fPlanForward=NULL;
-        fPlanForward = fftwf_plan_dft(ndim, N, (fftwf_complex*) MULTIDIM_ARRAY(*fComplex),
-                                     (fftwf_complex*) MULTIDIM_ARRAY(fFourier), FFTW_FORWARD, FFTW_ESTIMATE);
-        if (fPlanBackward!=NULL)
-            fftwf_destroy_plan(fPlanBackward);
-        fPlanBackward=NULL;
-        fPlanBackward = fftwf_plan_dft(ndim, N, (fftwf_complex*) MULTIDIM_ARRAY(fFourier),
-                                      (fftwf_complex*) MULTIDIM_ARRAY(*fComplex), FFTW_BACKWARD, FFTW_ESTIMATE);
-        if (fPlanForward == NULL || fPlanBackward == NULL)
-            REPORT_ERROR("FFTW plans cannot be created");
-        delete [] N;
-        complexDataPtr=MULTIDIM_ARRAY(*fComplex);
-#else
-        if (plans_are_set)
-        {
-            fftw_destroy_plan(fPlanBackward);
-            fftw_destroy_plan(fPlanForward);
-        }
-
-        fPlanForward=NULL;
-        fPlanForward = fftw_plan_dft(ndim, N, (fftw_complex*) MULTIDIM_ARRAY(*fComplex),
-                                     (fftw_complex*) MULTIDIM_ARRAY(fFourier), FFTW_FORWARD, FFTW_ESTIMATE);
-
-        fPlanBackward=NULL;
-        fPlanBackward = fftw_plan_dft(ndim, N, (fftw_complex*) MULTIDIM_ARRAY(fFourier),
-                                      (fftw_complex*) MULTIDIM_ARRAY(*fComplex), FFTW_BACKWARD, FFTW_ESTIMATE);
-
         plans_are_set = true;
 
-        if (fPlanForward == NULL || fPlanBackward == NULL)
-            REPORT_ERROR("FFTW plans cannot be created");
-        delete [] N;
-        complexDataPtr=MULTIDIM_ARRAY(*fComplex);
+        pthread_mutex_lock(&fftw_plan_mutex);
+#ifdef RELION_SINGLE_PRECISION
+        fPlanForward = fftwf_plan_dft(ndim, N, (fftwf_complex*) MULTIDIM_ARRAY(*fComplex),
+                                     (fftwf_complex*) MULTIDIM_ARRAY(fFourier), FFTW_FORWARD, FFTW_ESTIMATE);
+        fPlanBackward = fftwf_plan_dft(ndim, N, (fftwf_complex*) MULTIDIM_ARRAY(fFourier),
+                                      (fftwf_complex*) MULTIDIM_ARRAY(*fComplex), FFTW_BACKWARD, FFTW_ESTIMATE);
+#else
+        fPlanForward = fftw_plan_dft(ndim, N, (fftw_complex*) MULTIDIM_ARRAY(*fComplex),
+                                     (fftw_complex*) MULTIDIM_ARRAY(fFourier), FFTW_FORWARD, FFTW_ESTIMATE);
+        fPlanBackward = fftw_plan_dft(ndim, N, (fftw_complex*) MULTIDIM_ARRAY(fFourier),
+                                      (fftw_complex*) MULTIDIM_ARRAY(*fComplex), FFTW_BACKWARD, FFTW_ESTIMATE);
 #endif
         pthread_mutex_unlock(&fftw_plan_mutex);
+
+        if (fPlanForward == NULL || fPlanBackward == NULL)
+            REPORT_ERROR("FFTW plans cannot be created");
+
+        delete [] N;
+        complexDataPtr=MULTIDIM_ARRAY(*fComplex);
     }
 }
 
@@ -699,6 +681,85 @@ void getAbMatricesForShiftImageInFourierTransform(MultidimArray<Complex > &in,
 	default:
 		REPORT_ERROR("getAbMatricesForShiftImageInFourierTransform ERROR: dimension should be 1, 2 or 3!");
 	}
+}
+
+void shiftImageInFourierTransformWithTabSincos(MultidimArray<Complex > &in,
+		                          MultidimArray<Complex > &out,
+		                          RFLOAT oridim, long int newdim,
+		                          TabSine& tabsin, TabCosine& tabcos,
+		                          RFLOAT xshift, RFLOAT yshift, RFLOAT zshift)
+{
+	RFLOAT a = 0., b = 0., c = 0., d = 0., ac = 0., bd = 0., ab_cd = 0., dotp = 0., x = 0., y = 0., z = 0.;
+	RFLOAT twopi = 2. * PI;
+
+	if (&in == &out)
+		REPORT_ERROR("shiftImageInFourierTransformWithTabSincos ERROR: Input and output images should be different!");
+    // Check size of the input array
+    if ( (YSIZE(in) > 1) && ( (YSIZE(in)/2 + 1) != XSIZE(in) ) )
+        REPORT_ERROR("shiftImageInFourierTransformWithTabSincos ERROR: the Fourier transform should be of an image with equal sizes in all dimensions!");
+
+    long int newhdim = newdim/2 + 1;
+    if (newhdim > XSIZE(in))
+    	REPORT_ERROR("shiftImageInFourierTransformWithTabSincos ERROR: 'newdim' should be equal or smaller than the size of the original array!");
+
+    // Initialise output array
+    out.clear();
+    switch (in.getDim())
+    {
+    case 2: out.initZeros(newdim, newhdim); break;
+    case 3: out.initZeros(newdim, newdim, newhdim); break;
+    default: REPORT_ERROR("shiftImageInFourierTransformWithTabSincos ERROR: dimension should be 2 or 3!");
+    }
+
+    if (in.getDim() == 2)
+    {
+		xshift /= -oridim;
+		yshift /= -oridim;
+		if ( (ABS(xshift) < XMIPP_EQUAL_ACCURACY) && (ABS(yshift) < XMIPP_EQUAL_ACCURACY) )
+		{
+			windowFourierTransform(in, out, newdim);
+			return;
+		}
+
+		FOR_ALL_ELEMENTS_IN_FFTW_TRANSFORM2D(out)
+		{
+			dotp = twopi * (jp * xshift + ip * yshift);
+
+			a = tabcos(dotp);
+			b = tabsin(dotp);
+			c = FFTW2D_ELEM(in, ip, jp).real;
+			d = FFTW2D_ELEM(in, ip, jp).imag;
+			ac = a * c;
+			bd = b * d;
+			ab_cd = (a + b) * (c + d);
+			FFTW2D_ELEM(out, ip, jp) = Complex(ac - bd, ab_cd - ac - bd);
+		}
+    }
+    else if (in.getDim() == 3)
+    {
+		xshift /= -oridim;
+		yshift /= -oridim;
+		zshift /= -oridim;
+		if ( (ABS(xshift) < XMIPP_EQUAL_ACCURACY) && (ABS(yshift) < XMIPP_EQUAL_ACCURACY) && (ABS(zshift) < XMIPP_EQUAL_ACCURACY) )
+		{
+			windowFourierTransform(in, out, newdim);
+			return;
+		}
+
+		FOR_ALL_ELEMENTS_IN_FFTW_TRANSFORM(out)
+		{
+			dotp = twopi * (jp * xshift + ip * yshift + kp * zshift);
+
+			a = tabcos(dotp);
+			b = tabsin(dotp);
+			c = FFTW_ELEM(in, kp, ip, jp).real;
+			d = FFTW_ELEM(in, kp, ip, jp).imag;
+			ac = a * c;
+			bd = b * d;
+			ab_cd = (a + b) * (c + d);
+			FFTW_ELEM(out, kp, ip, jp) = Complex(ac - bd, ab_cd - ac - bd);
+		}
+    }
 }
 
 // Shift an image through phase-shifts in its Fourier Transform (without pretabulated sine and cosine)

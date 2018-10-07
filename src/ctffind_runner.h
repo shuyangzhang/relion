@@ -44,8 +44,11 @@ public:
 	// Output rootname
 	FileName fn_in, fn_out;
 
+	// Estimate CTFs from rlnMicrographNameWithoutDoseWeighting instead of rlnMicrographName?
+	bool do_use_without_doseweighting;
+
 	// Filenames of all the micrographs to estimate the CTF from
-	std::vector<FileName> fn_micrographs, fn_micrographs_all;
+	std::vector<FileName> fn_micrographs, fn_micrographs_widose, fn_micrographs_all, fn_micrographs_widose_all;
 
 	// Dimension of squared area of the micrograph to use for CTF estimation
 	int ctf_win;
@@ -132,8 +135,8 @@ public:
 	// Current working directory to make absolute-path symlinks
 	std::string currdir;
 
-	// Expect large astigmatism for CTFFIND4.1?
-	bool do_large_astigmatism;
+	// Disable "Slower, more exhaustive search?" in CTFFIND 4.1.5-
+	bool do_fast_search;
 
 	// Which GPU devices to use?
 	std::string gpu_ids;
@@ -175,7 +178,7 @@ public:
 			RFLOAT &maxres, RFLOAT &valscore, RFLOAT &phaseshift, bool do_warn = true);
 	bool getCtffind3Results(FileName fn_mic, RFLOAT &defU, RFLOAT &defV, RFLOAT &defAng, RFLOAT &CC,
 			RFLOAT &HT, RFLOAT &CS, RFLOAT &AmpCnst, RFLOAT &XMAG, RFLOAT &DStep,
-			RFLOAT &maxres, RFLOAT &valscore, bool do_warn = true);
+			RFLOAT &maxres, RFLOAT &phaseshift, RFLOAT &valscore, bool do_warn = true);
 	bool getCtffind4Results(FileName fn_mic, RFLOAT &defU, RFLOAT &defV, RFLOAT &defAng, RFLOAT &CC,
 			RFLOAT &HT, RFLOAT &CS, RFLOAT &AmpCnst, RFLOAT &XMAG, RFLOAT &DStep,
 			RFLOAT &maxres, RFLOAT &phaseshift, bool do_warn = true);

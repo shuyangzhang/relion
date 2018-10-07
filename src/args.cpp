@@ -249,6 +249,16 @@ void IOParser::writeCommandLine(std::ostream &out)
 bool IOParser::checkForErrors(int verb)
 {
 
+	if(checkParameter(argc, argv, "--version"))
+	{
+		std::cout << "RELION version " << RELION_VERSION << std::endl;
+		exit(0);
+	}
+    if(argc==1 || (argc==2 && checkParameter(argc, argv, "--continue")) || checkParameter(argc, argv, "--help") || checkParameter(argc, argv, "-h"))
+	{
+		writeUsage(std::cout);
+	 	exit(0);
+	}
 	// First check the command line for unknown arguments
 	checkForUnknownArguments();
 

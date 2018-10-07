@@ -45,9 +45,10 @@
 #ifndef MACROS_H
 #define MACROS_H
 
-#define RELION_VERSION "v2.0.5"
+#define RELION_VERSION "2.1.0"
 
 #include <math.h>
+#include <signal.h>
 #include "src/error.h"
 
 #ifndef _CYGWIN

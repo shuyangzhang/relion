@@ -128,7 +128,7 @@ void Preprocessing::initialise()
 		if (verb > 0)
 		{
 			if (fn_star_in=="" || (fn_coord_suffix=="" && fn_data == ""))
-				REPORT_ERROR("Preprocessing::initialise ERROR: please provide --i and either (--coord_suffix or __reextract_data_star) to extract particles");
+				REPORT_ERROR("Preprocessing::initialise ERROR: please provide --i and either (--coord_suffix or --reextract_data_star) to extract particles");
 
 			if (extract_size < 0)
 				REPORT_ERROR("Preprocessing::initialise ERROR: please provide the size of the box to extract particle using --extract_size ");
@@ -530,12 +530,6 @@ void Preprocessing::readHelicalCoordinates(FileName fn_mic, FileName fn_coord, M
 {
     MD.clear();
 
-    bool is_star = (fn_coord.getExtension() == "star");
-    bool is_box = (fn_coord.getExtension() == "box");
-    bool is_coords = (fn_coord.getExtension() == "coords");
-    if ( (!is_star) && (!is_box) && (!is_coords) )
-		REPORT_ERROR("Preprocessing::readCoordinates ERROR: Extraction of helical segments - Unknown file extension (*.star, *.box and *.coords are supported).");
-
 	// Get movie or normal micrograph name and check it exists
 	if (!exists(fn_mic))
 	{
@@ -549,19 +543,37 @@ void Preprocessing::readHelicalCoordinates(FileName fn_mic, FileName fn_coord, M
 
 	int xdim, ydim, zdim;
 	long int ndim;
+	bool is_3D = false;
 	Imic.getDimensions(xdim, ydim, zdim, ndim);
+	if (ndim != 1)
+		REPORT_ERROR("Preprocessing::readCoordinates ERROR: Extraction of helical segments - " + (std::string)(fn_mic) + " is a stack, not a 2D micrograph or 3D tomogram!");
+	if (zdim > 1)
+		is_3D = true;
+
+    bool is_star = (fn_coord.getExtension() == "star");
+    bool is_box = (fn_coord.getExtension() == "box");
+    bool is_coords = (fn_coord.getExtension() == "coords");
+    if ( (!is_star) && (!is_box) && (!is_coords) )
+		REPORT_ERROR("Preprocessing::readCoordinates ERROR: Extraction of helical segments - Unknown file extension (RELION *.star, EMAN2 *.box and XIMDISP *.coords are supported).");
+    if ( (is_3D) && (!is_star) )
+   		REPORT_ERROR("Preprocessing::readCoordinates ERROR: Extraction of 3D helical subtomograms - Only STAR coordinate files are supported!");
 
 	int total_segments, total_tubes;
     if (is_star)
     {
+    	//std::cerr << " DEBUG: Extracting helical segments / subtomograms from RELION STAR coordinate files..." << std::endl;
 		if (do_extract_helical_tubes)
+		{
+			if (is_3D)
+				REPORT_ERROR("Preprocessing::readCoordinates ERROR: Cannot extract 3D helical subtomograms from start-end coordinates!");
 			convertHelicalTubeCoordsToMetaDataTable(fn_coord, MD, total_segments, total_tubes, helical_nr_asu, helical_rise, angpix, xdim, ydim, extract_size, helical_bimodal_angular_priors, helical_cut_into_segments);
+		}
 		else
-			convertHelicalSegmentCoordsToMetaDataTable(fn_coord, MD, total_segments, xdim, ydim, extract_size, helical_bimodal_angular_priors);
+			convertHelicalSegmentCoordsToMetaDataTable(fn_coord, MD, total_segments, is_3D, xdim, ydim, zdim, extract_size, helical_bimodal_angular_priors);
     }
     else if (is_box)
     {
-		if (do_extract_helical_tubes)
+    	if (do_extract_helical_tubes)
 			convertEmanHelicalTubeCoordsToMetaDataTable(fn_coord, MD, total_segments, total_tubes, helical_nr_asu, helical_rise, angpix, xdim, ydim, extract_size, helical_bimodal_angular_priors, helical_cut_into_segments);
 		else
 			convertEmanHelicalSegmentCoordsToMetaDataTable(fn_coord, MD, total_segments, total_tubes, xdim, ydim, extract_size, helical_bimodal_angular_priors);
@@ -574,7 +586,7 @@ void Preprocessing::readHelicalCoordinates(FileName fn_mic, FileName fn_coord, M
 			convertXimdispHelicalSegmentCoordsToMetaDataTable(fn_coord, MD, total_segments, total_tubes, xdim, ydim, extract_size, helical_bimodal_angular_priors);
     }
 	else
-		REPORT_ERROR("Preprocessing::readCoordinates ERROR: Extraction of helical segments - Unknown file extension (*.star, *.box and *.coords are supported).");
+		REPORT_ERROR("Preprocessing::readCoordinates ERROR: Extraction of helical segments - Unknown file extension (RELION *.star, EMAN2 *.box and XIMDISP *.coords are supported).");
 }
 
 bool Preprocessing::extractParticlesFromFieldOfView(FileName fn_mic, long int imic)
@@ -761,6 +773,9 @@ void Preprocessing::extractParticlesFromOneFrame(MetaDataTable &MD,
 		long int ori_xsize = XSIZE(Imic());
 		long int ori_ysize = YSIZE(Imic());
 
+		// First set XmippOrigin for window operations
+		Imic().setXmippOrigin();
+
 		if (ori_xsize > ori_ysize)
 			rewindow(Imic, ori_xsize);
 		else if (ori_ysize > ori_xsize)
@@ -786,6 +801,9 @@ void Preprocessing::extractParticlesFromOneFrame(MetaDataTable &MD,
 		if (ori_xsize != ori_ysize)
 			Imic().window(FIRST_XMIPP_INDEX(ori_ysize), FIRST_XMIPP_INDEX(ori_xsize),
 					LAST_XMIPP_INDEX(ori_ysize),  LAST_XMIPP_INDEX(ori_xsize));
+
+		// Set back original origin for particle window operations
+		Imic().xinit = Imic().yinit = Imic().zinit = 0;
 	}
 
 	// Now window all particles from the micrograph
@@ -1032,7 +1050,7 @@ void Preprocessing::runOperateOnInputFile()
 
 		RFLOAT tilt_deg, psi_deg;
 		tilt_deg = psi_deg = 0.;
-		performPerImageOperations(Ipart, fn_stack, 1, i, Nimg,
+		performPerImageOperations(Ipart, fn_operate_out.withoutExtension(), 1, i, Nimg,
 				tilt_deg, psi_deg,
 				all_avg, all_stddev, all_minval, all_maxval);
 
@@ -1069,6 +1087,8 @@ void Preprocessing::performPerImageOperations(
 	if (do_rescale) rescale(Ipart, scale);
 
 	if (do_rewindow) rewindow(Ipart, window);
+
+        Ipart().setXmippOrigin();
 
 	TIMING_TIC(TIMING_NORMALIZE);
 	// Jun24,2015 - Shaoda, helical segments
