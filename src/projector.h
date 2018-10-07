@@ -27,6 +27,7 @@
 #define NEAREST_NEIGHBOUR 0
 #define TRILINEAR 1
 #define CONVOLUTE_BLOB 2
+#define CUBIC 3
 
 #define FORWARD_PROJECTION 0
 #define BACKWARD_PROJECTION 1
@@ -190,7 +191,7 @@ public:
     * Depending on whether 2D or 3D Fourier Transforms will be extracted, the map is normalized internally in a different manner
     *
     */
-   void computeFourierTransformMap(MultidimArray<RFLOAT> &vol_in, MultidimArray<RFLOAT> &power_spectrum, int current_size = -1, int nr_threads = 1, bool do_gridding = true, bool do_heavy = true);
+   void computeFourierTransformMap(MultidimArray<RFLOAT> &vol_in, MultidimArray<RFLOAT> &power_spectrum, int current_size = -1, int nr_threads = 1, bool do_gridding = true, bool do_heavy = true, RFLOAT cubic_alpha = -0.5);
 
    /* This is experimental: apply a mask in Fourier-space to focus refinements on certain Fourier components
     * mask_r_min and mask_r_max are the radii of the lowest and highest frequencies (only keep crown inside)
@@ -202,20 +203,20 @@ public:
     * the real-space maps by dividing them by the Fourier Transform of the interpolator
     * Note these corrections are made on the not-oversampled, i.e. originally sized real-space map
     */
-   void griddingCorrect(MultidimArray<RFLOAT> &vol_in);
+   void griddingCorrect(MultidimArray<RFLOAT> &vol_in, RFLOAT cubic_alpha = -0.5);
 
    /*
 	* Get a 2D Fourier Transform from the 2D or 3D data array
 	* Depending on the dimension of the map, this will be a projection or a rotation operation
 	*/
-	void get2DFourierTransform(MultidimArray<Complex > &img_out, Matrix2D<RFLOAT> &A, bool inv)
+	void get2DFourierTransform(MultidimArray<Complex > &img_out, Matrix2D<RFLOAT> &A, bool inv, RFLOAT cubic_alpha = -0.5)
 	{
 		// Rotation of a 3D Fourier Transform
 		if (data_dim == 3)
 		{
 			if (ref_dim != 3)
 				REPORT_ERROR("Projector::get3DFourierTransform%%ERROR: Dimension of the data array should be 3");
-			rotate3D(img_out, A, inv);
+			rotate3D(img_out, A, inv, cubic_alpha);
 		}
 		else
 		{
@@ -246,7 +247,7 @@ public:
 	/*
 	* Get a rotated version of the 3D map (mere interpolation)
 	*/
-	void rotate3D(MultidimArray<Complex > &img_out, Matrix2D<RFLOAT> &A, bool inv);
+	void rotate3D(MultidimArray<Complex > &img_out, Matrix2D<RFLOAT> &A, bool inv, RFLOAT cubic_alpha = -0.5);
 
 
 };
